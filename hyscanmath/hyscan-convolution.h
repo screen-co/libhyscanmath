@@ -29,7 +29,6 @@
 
 #include <glib-object.h>
 #include <hyscan-data.h>
-#include <hyscan-math-exports.h>
 
 G_BEGIN_DECLS
 
@@ -56,7 +55,7 @@ struct _HyScanConvolutionClass
   GObjectClass parent_class;
 };
 
-HYSCAN_MATH_EXPORT
+HYSCAN_API
 GType hyscan_convolution_get_type (void);
 
 /**
@@ -67,7 +66,7 @@ GType hyscan_convolution_get_type (void);
  *
  *
  */
-HYSCAN_MATH_EXPORT
+HYSCAN_API
 HyScanConvolution     *hyscan_convolution_new          (void);
 
 /**
@@ -81,7 +80,7 @@ HyScanConvolution     *hyscan_convolution_new          (void);
  * \return TRUE - если образец для свёртки установлен, FALSE - в случае ошибки.
  *
  */
-HYSCAN_MATH_EXPORT
+HYSCAN_API
 gboolean               hyscan_convolution_set_image    (HyScanConvolution     *convolution,
                                                         HyScanComplexFloat    *image,
                                                         gint32                 n_points);
@@ -98,7 +97,7 @@ gboolean               hyscan_convolution_set_image    (HyScanConvolution     *c
  * \return TRUE - если свёртка выполнена, FALSE - в случае ошибки.
  *
  */
-HYSCAN_MATH_EXPORT
+HYSCAN_API
 gboolean               hyscan_convolution_convolve     (HyScanConvolution     *convolution,
                                                         HyScanComplexFloat    *data,
                                                         gint32                 n_points);
