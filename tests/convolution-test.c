@@ -48,6 +48,7 @@ main (int argc, char **argv)
       }
 
     g_option_context_free (context);
+    g_free (args);
   }
 
   /* Объект выполнения свёртки. */
