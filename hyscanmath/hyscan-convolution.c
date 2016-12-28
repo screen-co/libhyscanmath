@@ -23,10 +23,10 @@ struct _HyScanConvolutionPrivate
 {
   HyScanComplexFloat          *ibuff;          /* Буфер для обработки данных. */
   HyScanComplexFloat          *obuff;          /* Буфер для обработки данных. */
-  gint32                       max_points;     /* Максимальное число точек помещающихся в буферах. */
+  guint32                      max_points;     /* Максимальное число точек помещающихся в буферах. */
 
   PFFFT_Setup                 *fft;            /* Коэффициенты преобразования Фурье. */
-  gint32                       fft_size;       /* Размер преобразования Фурье. */
+  guint32                      fft_size;       /* Размер преобразования Фурье. */
   gfloat                       fft_scale;      /* Коэффициент масштабирования свёртки. */
   HyScanComplexFloat          *fft_image;      /* Образец сигнала для свёртки. */
 };
@@ -75,16 +75,15 @@ hyscan_convolution_new (void)
 gboolean
 hyscan_convolution_set_image (HyScanConvolution  *convolution,
                               HyScanComplexFloat *image,
-                              gint32              n_points)
+                              guint32             n_points)
 {
   HyScanConvolutionPrivate *priv;
 
   HyScanComplexFloat *image_buff;
 
-  gint32 conv_size = 2 * n_points;
-  gint32 opt_size = 0;
-
-  gint32 i, j, k;
+  guint32 conv_size = 2 * n_points;
+  guint32 opt_size = 0;
+  guint32 i, j, k;
 
   g_return_val_if_fail (HYSCAN_IS_CONVOLUTION (convolution), FALSE);
 
@@ -100,18 +99,18 @@ hyscan_convolution_set_image (HyScanConvolution  *convolution,
     return TRUE;
 
   /* Ищем оптимальный размер свёртки для библиотеки pffft_new_setup (см. pffft.h). */
-  opt_size = G_MAXINT32;
+  opt_size = G_MAXUINT32;
   for (i = 32; i <= 512; i *= 2)
     for (j = 1; j <= 243; j *= 3)
       for (k = 1; k <= 5; k *= 5)
         {
           if (i * j * k < conv_size)
             continue;
-          if (ABS (i * j * k - conv_size) < ABS (opt_size - conv_size))
+          if ((i * j * k - conv_size) < (opt_size - conv_size))
             opt_size = i * j * k;
         }
 
-  if (opt_size == G_MAXINT32)
+  if (opt_size == G_MAXUINT32)
     {
       g_critical ("hyscan_convolution_set_image: can't find optimal fft size");
       return FALSE;
@@ -169,14 +168,14 @@ hyscan_convolution_set_image (HyScanConvolution  *convolution,
 gboolean
 hyscan_convolution_convolve (HyScanConvolution  *convolution,
                              HyScanComplexFloat *data,
-                             gint32              n_points)
+                             guint32             n_points)
 {
   HyScanConvolutionPrivate *priv;
 
-  gint32 i;
-  gint32 n_fft;
-  gint32 full_size;
-  gint32 half_size;
+  guint32 full_size;
+  guint32 half_size;
+  guint32 n_fft;
+  guint32 i;
 
   g_return_val_if_fail (HYSCAN_IS_CONVOLUTION (convolution), FALSE);
 
@@ -233,8 +232,8 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
 #endif
   for (i = 0; i < n_fft; i++)
     {
-      gint32 offset = i * full_size;
-      gint32 used_size = MIN( ( n_points - i * half_size ), half_size );
+      guint32 offset = i * full_size;
+      guint32 used_size = MIN ((n_points - i * half_size), half_size);
 
       /* Обнуляем выходной буфер, т.к. функция zconvolve_accumulate добавляет полученный результат
          к значениям в этом буфере (нам это не нужно) ...*/

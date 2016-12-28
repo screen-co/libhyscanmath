@@ -33,6 +33,7 @@ G_BEGIN_DECLS
  * \return Указатель на образ сигнала.
  *
  */
+HYSCAN_API
 HyScanComplexFloat    *hyscan_signal_image_tone        (gdouble                disc_freq,
                                                         gdouble                signal_freq,
                                                         gdouble                duration,
@@ -53,6 +54,7 @@ HyScanComplexFloat    *hyscan_signal_image_tone        (gdouble                d
  * \return Указатель на образ сигнала.
  *
  */
+HYSCAN_API
 HyScanComplexFloat    *hyscan_signal_image_lfm         (gdouble                disc_freq,
                                                         gdouble                start_freq,
                                                         gdouble                end_freq,
