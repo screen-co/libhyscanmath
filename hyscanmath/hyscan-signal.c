@@ -27,7 +27,7 @@ hyscan_signal_image_tone (gdouble  disc_freq,
   for (i = 0; i < *n_points; i++)
     {
       gdouble time = i * (1.0 / disc_freq);
-      gdouble phase = 2.0 * M_PI * signal_freq * time;
+      gdouble phase = 2.0 * G_PI * signal_freq * time;
 
       image[i].re = cos (phase);
       image[i].im = sin (phase);

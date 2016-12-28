@@ -137,7 +137,7 @@ main (int argc, char **argv)
       for (i = 2 * image_size, j = 0; j < image_size; j++)
         {
           gdouble time = j * (1.0 / discretization);
-          gdouble phase = 2.0 * M_PI * frequency * time;
+          gdouble phase = 2.0 * G_PI * frequency * time;
 
           phase = G_PI * time * bandwidth;
 
