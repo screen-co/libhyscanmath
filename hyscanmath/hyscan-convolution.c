@@ -14,7 +14,7 @@
 #include <string.h>
 #include "pffft.h"
 
-#ifdef HYSCAN_CORE_USE_OPENMP
+#ifdef HYSCAN_MATH_USE_OPENMP
 #include <omp.h>
 #endif
 
@@ -214,7 +214,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
           ((n_fft + 1) * half_size - n_points) * sizeof(HyScanComplexFloat));
 
   /* Прямое преобразование Фурье. */
-#ifdef HYSCAN_CORE_USE_OPENMP
+#ifdef HYSCAN_MATH_USE_OPENMP
 #pragma omp parallel for
 #endif
   for (i = 0; i < n_fft; i++)
@@ -227,7 +227,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
     }
 
   /* Свёртка и обратное преобразование Фурье. */
-#ifdef HYSCAN_CORE_USE_OPENMP
+#ifdef HYSCAN_MATH_USE_OPENMP
 #pragma omp parallel for
 #endif
   for (i = 0; i < n_fft; i++)
