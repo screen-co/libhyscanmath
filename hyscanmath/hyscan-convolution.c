@@ -18,11 +18,39 @@
 #include <omp.h>
 #endif
 
+/* Таблица доспустимых размеров FFT преобразований. */
+static guint
+fft_sizes[] = {32, 64, 96, 128, 160, 192, 256, 288, 320, 384, 480, 512, 576, 640, 768,
+               800, 864, 960, 1024, 1152, 1280, 1440, 1536, 1600, 1728, 1920, 2048, 2304,
+               2400, 2560, 2592, 2880, 3072, 3200, 3456, 3840, 4000, 4096, 4320, 4608,
+               4800, 5120, 5184, 5760, 6144, 6400, 6912, 7200, 7680, 7776, 8000, 8192,
+               8640, 9216, 9600, 10240, 10368, 11520, 12000, 12288, 12800, 12960, 13824,
+               14400, 15360, 15552, 16000, 16384, 17280, 18432, 19200, 20000, 20480, 20736,
+               21600, 23040, 23328, 24000, 24576, 25600, 25920, 27648, 28800, 30720, 31104,
+               32000, 32768, 34560, 36000, 36864, 38400, 38880, 40000, 40960, 41472, 43200,
+               46080, 46656, 48000, 49152, 51200, 51840, 55296, 57600, 60000, 61440, 62208,
+               64000, 64800, 65536, 69120, 69984, 72000, 73728, 76800, 77760, 80000, 81920,
+               82944, 86400, 92160, 93312, 96000, 98304, 100000, 102400, 103680, 108000,
+               110592, 115200, 116640, 120000, 122880, 124416, 128000, 129600, 131072,
+               138240, 139968, 144000, 147456, 153600, 155520, 160000, 163840, 165888,
+               172800, 180000, 184320, 186624, 192000, 194400, 196608, 200000, 204800,
+               207360, 209952, 216000, 221184, 230400, 233280, 240000, 245760, 248832,
+               256000, 259200, 262144, 276480, 279936, 288000, 294912, 300000, 307200,
+               311040, 320000, 324000, 327680, 331776, 345600, 349920, 360000, 368640,
+               373248, 384000, 388800, 393216, 400000, 409600, 414720, 419904, 432000,
+               442368, 460800, 466560, 480000, 491520, 497664, 500000, 512000, 518400,
+               524288, 540000, 552960, 559872, 576000, 583200, 589824, 600000, 614400,
+               622080, 629856, 640000, 648000, 655360, 663552, 691200, 699840, 720000,
+               737280, 746496, 768000, 777600, 786432, 800000, 819200, 829440, 839808,
+               864000, 884736, 900000, 921600, 933120, 960000, 972000, 983040, 995328,
+               1000000, 1024000, 1036800, 1048576};
+
 /* Внутренние данные объекта. */
 struct _HyScanConvolutionPrivate
 {
   HyScanComplexFloat          *ibuff;          /* Буфер для обработки данных. */
   HyScanComplexFloat          *obuff;          /* Буфер для обработки данных. */
+  HyScanComplexFloat          *wbuff;          /* Буфер для обработки данных. */
   guint32                      max_points;     /* Максимальное число точек помещающихся в буферах. */
 
   PFFFT_Setup                 *fft;            /* Коэффициенты преобразования Фурье. */
@@ -31,7 +59,10 @@ struct _HyScanConvolutionPrivate
   HyScanComplexFloat          *fft_image;      /* Образец сигнала для свёртки. */
 };
 
-static void    hyscan_convolution_object_finalize      (GObject       *object);
+static void    hyscan_convolution_object_finalize      (GObject                       *object);
+
+static void    hyscan_convolution_realloc_buffers      (HyScanConvolutionPrivate      *priv,
+                                                        guint                          n_points);
 
 G_DEFINE_TYPE_WITH_PRIVATE (HyScanConvolution, hyscan_convolution, G_TYPE_OBJECT);
 
@@ -57,11 +88,29 @@ hyscan_convolution_object_finalize (GObject *object)
 
   pffft_aligned_free (priv->ibuff);
   pffft_aligned_free (priv->obuff);
+  pffft_aligned_free (priv->wbuff);
 
   pffft_aligned_free (priv->fft_image);
   pffft_destroy_setup (priv->fft);
 
   G_OBJECT_CLASS (hyscan_convolution_parent_class)->finalize (object);
+}
+
+/* Функция выделяет память для буферов джанных. */
+static void
+hyscan_convolution_realloc_buffers (HyScanConvolutionPrivate *priv,
+                                    guint                     n_points)
+{
+  if (n_points > priv->max_points)
+    {
+      priv->max_points = n_points;
+      pffft_aligned_free (priv->ibuff);
+      pffft_aligned_free (priv->obuff);
+      pffft_aligned_free (priv->wbuff);
+      priv->ibuff = pffft_aligned_malloc (priv->max_points * sizeof(HyScanComplexFloat));
+      priv->obuff = pffft_aligned_malloc (priv->max_points * sizeof(HyScanComplexFloat));
+      priv->wbuff = pffft_aligned_malloc (priv->max_points * sizeof(HyScanComplexFloat));
+    }
 }
 
 /* Функция создаёт новый объект HyScanConvolution. */
@@ -83,7 +132,7 @@ hyscan_convolution_set_image (HyScanConvolution  *convolution,
 
   guint32 conv_size = 2 * n_points;
   guint32 opt_size = 0;
-  guint32 i, j, k;
+  guint32 i;
 
   g_return_val_if_fail (HYSCAN_IS_CONVOLUTION (convolution), FALSE);
 
@@ -100,23 +149,23 @@ hyscan_convolution_set_image (HyScanConvolution  *convolution,
 
   /* Ищем оптимальный размер свёртки для библиотеки pffft_new_setup (см. pffft.h). */
   opt_size = G_MAXUINT32;
-  for (i = 32; i <= 512; i *= 2)
-    for (j = 1; j <= 243; j *= 3)
-      for (k = 1; k <= 5; k *= 5)
-        {
-          if (i * j * k < conv_size)
-            continue;
-          if ((i * j * k - conv_size) < (opt_size - conv_size))
-            opt_size = i * j * k;
-        }
+  for (i = 0; i < (sizeof (fft_sizes) / sizeof (guint)); i++)
+    if (conv_size <= fft_sizes[i])
+      {
+        opt_size = fft_sizes[i];
+        break;
+      }
 
   if (opt_size == G_MAXUINT32)
     {
-      g_critical ("hyscan_convolution_set_image: can't find optimal fft size");
+      g_critical ("HyScanConvolution: fft size too big");
       return FALSE;
     }
 
   priv->fft_size = opt_size;
+
+  /* Обновляем буферы. */
+  hyscan_convolution_realloc_buffers(priv, 16 * priv->fft_size);
 
   /* Коэффициент масштабирования свёртки. */
   priv->fft_scale = 1.0 / ((gfloat) priv->fft_size * (gfloat) n_points);
@@ -125,7 +174,7 @@ hyscan_convolution_set_image (HyScanConvolution  *convolution,
   priv->fft = pffft_new_setup (priv->fft_size, PFFFT_COMPLEX);
   if (!priv->fft)
     {
-      g_critical ("hyscan_convolution_set_image: can't setup fft");
+      g_critical ("HyScanConvolution: can't setup fft");
       return FALSE;
     }
 
@@ -140,7 +189,7 @@ hyscan_convolution_set_image (HyScanConvolution  *convolution,
   pffft_transform_ordered (priv->fft,
                            (const gfloat*) priv->fft_image,
                            (gfloat*) image_buff,
-                           NULL,
+                           (gfloat*) priv->wbuff,
                            PFFFT_FORWARD);
 
   for (i = 0; i < priv->fft_size; i++)
@@ -174,8 +223,8 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
 
   guint32 full_size;
   guint32 half_size;
-  guint32 n_fft;
-  guint32 i;
+  gint32 n_fft;
+  gint32 i;
 
   g_return_val_if_fail (HYSCAN_IS_CONVOLUTION (convolution), FALSE);
 
@@ -193,15 +242,8 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
   if (n_points % half_size)
     n_fft += 1;
 
-  /* Определяем размер буферов и изменяем их размер при необходимости. */
-  if (n_fft * full_size > priv->max_points)
-    {
-      priv->max_points = n_fft * full_size;
-      pffft_aligned_free (priv->ibuff);
-      pffft_aligned_free (priv->obuff);
-      priv->ibuff = pffft_aligned_malloc (priv->max_points * sizeof(HyScanComplexFloat));
-      priv->obuff = pffft_aligned_malloc (priv->max_points * sizeof(HyScanComplexFloat));
-    }
+  /* Обновляем буферы. */
+  hyscan_convolution_realloc_buffers(priv, n_fft * priv->fft_size);
 
   /* Копируем данные во входной буфер. */
   memcpy (priv->ibuff,
@@ -222,7 +264,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
       pffft_transform (priv->fft,
                        (const gfloat*) (priv->ibuff + (i * half_size)),
                        (gfloat*) (priv->obuff + (i * full_size)),
-                       NULL,
+                       (gfloat*) (priv->wbuff + (i * full_size)),
                        PFFFT_FORWARD);
     }
 
@@ -257,7 +299,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
       pffft_transform_ordered (priv->fft,
                                (gfloat*) (priv->obuff + offset),
                                (gfloat*) (priv->ibuff + offset),
-                               NULL,
+                               (gfloat*) (priv->wbuff + offset),
                                PFFFT_BACKWARD);
 
       /* Копируем результат обратно в буфер пользователя. */

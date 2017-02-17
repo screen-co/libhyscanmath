@@ -5,10 +5,6 @@ project (libhyscanmath)
 
 include (FindPkgConfig)
 
-if (NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-  add_definitions (-DPFFFT_SIMD_DISABLE)
-endif ()
-
 if (HYSCAN_MATH_USE_OPENMP)
   add_definitions (-DHYSCAN_MATH_USE_OPENMP)
 endif ()

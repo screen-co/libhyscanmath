@@ -12,7 +12,7 @@ main (int argc, char **argv)
   gdouble bandwidth = 0.0;        /* Полоса для ЛЧМ сигнала. */
   gdouble duration = 0.0;         /* Длительность сигнала. */
   gdouble discretization = 0.0;   /* Частота дискретизации. */
-  gdouble error = 1.0;            /* Допустимая ошибка. */
+  gdouble conv_error = 1.0;       /* Допустимая ошибка. */
   gchar *signal = NULL;           /* Тип сигнала. */
 
   HyScanConvolution *convolution;
@@ -36,7 +36,7 @@ main (int argc, char **argv)
         { "frequency", 'f', 0, G_OPTION_ARG_DOUBLE, &frequency, "Signal frequency, Hz", NULL },
         { "bandwidth", 'w', 0, G_OPTION_ARG_DOUBLE, &bandwidth, "LFM signal bandwidth, Hz", NULL },
         { "duration", 't', 0, G_OPTION_ARG_DOUBLE, &duration, "Signal duration, s", NULL },
-        { "error", 'e', 0, G_OPTION_ARG_DOUBLE, &error, "Admissible error, %", NULL },
+        { "error", 'e', 0, G_OPTION_ARG_DOUBLE, &conv_error, "Admissible error, %", NULL },
         { "signal", 's', 0, G_OPTION_ARG_STRING, &signal, "Signal type (tone, lfm)", NULL },
         { NULL }
       };
@@ -163,9 +163,10 @@ main (int argc, char **argv)
       square2 += sqrt (data[i].re * data[i].re + data[i].im * data[i].im);
     }
 
-  if ((100.0 * (fabs (square1 - square2) / square1)) > error)
-    g_error ("convolution error %.3f%% > %.3f%%", 100.0 * (fabs (square1 - square2) / square1), error);
+  if ((100.0 * (fabs (square1 - square2) / square1)) > conv_error)
+    g_error ("convolution error %.3f%% > %.3f%%", 100.0 * (fabs (square1 - square2) / square1), conv_error);
 
+  g_message ("convolution error %.3f%%", 100.0 * (fabs (square1 - square2) / square1));
   g_message ("done");
 
   /* Удаляем объект свёртки. */
