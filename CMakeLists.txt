@@ -1,19 +1,23 @@
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 2.8)
 
 project (libhyscanmath)
+
+set (HYSCAN_MAJOR_VERSION 5)
+set (HYSCAN_MATH_VERSION 0)
+set (HYSCAN_MATH_LIBRARY "hyscanmath-${HYSCAN_MAJOR_VERSION}")
 
 include (FindPkgConfig)
 
 if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE "Release")
+  set (CMAKE_BUILD_TYPE Release)
 endif ()
 
 if (HYSCAN_MATH_USE_OPENMP)
   add_definitions (-DHYSCAN_MATH_USE_OPENMP)
 endif ()
 
-if (${CMAKE_C_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
+if (${CMAKE_C_COMPILER_ID} STREQUAL GNU OR ${CMAKE_C_COMPILER_ID} STREQUAL Clang)
   if (HYSCAN_MATH_USE_OPENMP)
     set (OMP_FLAGS "-fopenmp")
   endif ()
@@ -21,7 +25,7 @@ if (${CMAKE_C_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_C_COMPILER_ID} STREQUAL "Cl
   set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 ${C_FLAGS}")
   set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O1 ${C_FLAGS}")
   set (MATH_LIBRARIES m)
-elseif (${CMAKE_C_COMPILER_ID} STREQUAL "MSVC")
+elseif (${CMAKE_C_COMPILER_ID} STREQUAL MSVC)
   if (HYSCAN_MATH_USE_OPENMP)
     set (OMP_FLAGS "/openmp")
   endif ()
@@ -50,16 +54,23 @@ if (NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
   set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 endif ()
 
-pkg_check_modules (GLIB2 REQUIRED "glib-2.0 gobject-2.0 gthread-2.0 gio-2.0")
+pkg_check_modules (GLIB2 REQUIRED glib-2.0 gobject-2.0 gthread-2.0 gio-2.0)
 add_definitions (${GLIB2_CFLAGS})
 link_directories (${GLIB2_LIBRARY_DIRS})
 
-include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/hyscanmath")
-include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/../libhyscantypes/hyscantypes")
+if (HYSCAN_USE_SYS_LIBS)
+  pkg_check_modules (HYSCAN REQUIRED "hyscantypes-${HYSCAN_MAJOR_VERSION}")
 
-link_directories ("${CMAKE_CURRENT_SOURCE_DIR}/../libhyscantypes/bin")
-set (HYSCAN_LIBRARIES hyscantypes)
+  link_directories (${HYSCAN_LIBRARY_DIRS})
+  add_definitions (${HYSCAN_CFLAGS})
+else ()
+  include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/../libhyscantypes/hyscantypes")
+  link_directories ("${CMAKE_CURRENT_SOURCE_DIR}/../libhyscantypes/bin")
+  set (HYSCAN_LIBRARIES "hyscantypes-${HYSCAN_MAJOR_VERSION}")
+endif ()
+
+include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/hyscanmath")
 
 add_definitions (-DG_LOG_DOMAIN="HyScanMath")
-add_subdirectory ("hyscanmath")
-add_subdirectory ("tests")
+add_subdirectory (hyscanmath)
+add_subdirectory (tests)
