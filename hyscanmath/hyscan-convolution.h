@@ -28,7 +28,7 @@
 #define __HYSCAN_CONVOLUTION_H__
 
 #include <glib-object.h>
-#include <hyscan-data.h>
+#include <hyscan-types.h>
 
 G_BEGIN_DECLS
 

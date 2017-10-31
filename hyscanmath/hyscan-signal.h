@@ -16,7 +16,7 @@
 #ifndef __HYSCAN_SIGNAL_H__
 #define __HYSCAN_SIGNAL_H__
 
-#include <hyscan-data.h>
+#include <hyscan-types.h>
 
 G_BEGIN_DECLS
 
