@@ -81,9 +81,9 @@ HyScanConvolution     *hyscan_convolution_new          (void);
  *
  */
 HYSCAN_API
-gboolean               hyscan_convolution_set_image    (HyScanConvolution     *convolution,
-                                                        HyScanComplexFloat    *image,
-                                                        guint32                n_points);
+gboolean               hyscan_convolution_set_image    (HyScanConvolution         *convolution,
+                                                        const HyScanComplexFloat  *image,
+                                                        guint32                    n_points);
 
 /**
  *
@@ -98,9 +98,9 @@ gboolean               hyscan_convolution_set_image    (HyScanConvolution     *c
  *
  */
 HYSCAN_API
-gboolean               hyscan_convolution_convolve     (HyScanConvolution     *convolution,
-                                                        HyScanComplexFloat    *data,
-                                                        guint32                n_points);
+gboolean               hyscan_convolution_convolve     (HyScanConvolution         *convolution,
+                                                        HyScanComplexFloat        *data,
+                                                        guint32                    n_points);
 
 G_END_DECLS
 

@@ -122,9 +122,9 @@ hyscan_convolution_new (void)
 
 /* Функция задаёт образец сигнала для свёртки. */
 gboolean
-hyscan_convolution_set_image (HyScanConvolution  *convolution,
-                              HyScanComplexFloat *image,
-                              guint32             n_points)
+hyscan_convolution_set_image (HyScanConvolution        *convolution,
+                              const HyScanComplexFloat *image,
+                              guint32                   n_points)
 {
   HyScanConvolutionPrivate *priv;
 
