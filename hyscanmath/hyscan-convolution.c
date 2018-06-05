@@ -168,7 +168,7 @@ hyscan_convolution_set_image (HyScanConvolution        *convolution,
   hyscan_convolution_realloc_buffers(priv, 16 * priv->fft_size);
 
   /* Коэффициент масштабирования свёртки. */
-  priv->fft_scale = 1.0 / ((gfloat) priv->fft_size * (gfloat) n_points);
+  priv->fft_scale = 10.0 / ((gfloat) priv->fft_size * (gfloat) n_points);
 
   /* Параметры преобразования Фурье. */
   priv->fft = pffft_new_setup (priv->fft_size, PFFFT_COMPLEX);
