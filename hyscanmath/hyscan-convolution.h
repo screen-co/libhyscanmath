@@ -8,15 +8,15 @@
  *
  * \defgroup HyScanConvolution HyScanConvolution - класс свёртки данных
  *
- * Класс HyScanConvolution используется для выполнения свёртки данных с образцом. Данные и образец
+ * Класс HyScanConvolution используется для выполнения свёртки данных с образом. Данные и образ
  * для свёртки должны быть представлены в комплексном виде (\link HyScanComplexFloat \endlink).
  *
  * Объект для выполнения свёртки создаётся функцией #hyscan_convolution_new.
  *
- * Перед выполнением свёртки необходимо задать образец с которым будет выполняться свёртка. Для
+ * Перед выполнением свёртки необходимо задать образ с которым будет выполняться свёртка. Для
  * этого предназначена функция #hyscan_convolution_set_image. Образец для свёртки можно изменять
  * в процессе работы с объектом. При повторных вызовах функции #hyscan_convolution_set_image
- * будет установлен новый образец для свёртки.
+ * будет установлен новый образ для свёртки.
  *
  * Функция #hyscan_convolution_convolve выполняет свертку данных.
  *
@@ -71,13 +71,13 @@ HyScanConvolution     *hyscan_convolution_new          (void);
 
 /**
  *
- * Функция задаёт образец сигнала для свёртки.
+ * Функция задаёт образ сигнала для свёртки.
  *
  * \param convolution указатель на объект \link HyScanConvolution \endlink;
- * \param image образец для свёртки;
- * \param n_points размер образца в точках.
+ * \param image образ для свёртки;
+ * \param n_points размер образа в точках.
  *
- * \return TRUE - если образец для свёртки установлен, FALSE - в случае ошибки.
+ * \return TRUE - если образ для свёртки установлен, FALSE - в случае ошибки.
  *
  */
 HYSCAN_API
@@ -87,12 +87,15 @@ gboolean               hyscan_convolution_set_image    (HyScanConvolution       
 
 /**
  *
- * Функция выполняет свёртку данных с образцом. Результат свёртки помещается
- * во входной массив.
+ * Функция выполняет свёртку данных с образом. Результат свёртки помещается
+ * во входной массив. При свёртке производится автоматическое нормирование
+ * на размер образа свёртки. Пользователь может указать дополнительный
+ * оэффициент на который будут домножены данные после свёртки.
  *
  * \param convolution указатель на объект \link HyScanConvolution \endlink;
  * \param data данные для свёртки;
- * \param n_points размер данных в точках.
+ * \param n_points размер данных в точках;
+ * \param scale коэффициент масштабирования.
  *
  * \return TRUE - если свёртка выполнена, FALSE - в случае ошибки.
  *
@@ -100,7 +103,8 @@ gboolean               hyscan_convolution_set_image    (HyScanConvolution       
 HYSCAN_API
 gboolean               hyscan_convolution_convolve     (HyScanConvolution         *convolution,
                                                         HyScanComplexFloat        *data,
-                                                        guint32                    n_points);
+                                                        guint32                    n_points,
+                                                        gfloat                     scale);
 
 G_END_DECLS
 

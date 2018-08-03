@@ -12,6 +12,7 @@ main (int argc, char **argv)
   gdouble bandwidth = 0.0;        /* Полоса для ЛЧМ сигнала. */
   gdouble duration = 0.0;         /* Длительность сигнала. */
   gdouble discretization = 0.0;   /* Частота дискретизации. */
+  gdouble conv_scale = 1.0;       /* Коэффициент масштабирования свёртки. */
   gdouble conv_error = 1.0;       /* Допустимая ошибка. */
   gchar *signal = NULL;           /* Тип сигнала. */
 
@@ -36,6 +37,7 @@ main (int argc, char **argv)
         { "frequency", 'f', 0, G_OPTION_ARG_DOUBLE, &frequency, "Signal frequency, Hz", NULL },
         { "bandwidth", 'w', 0, G_OPTION_ARG_DOUBLE, &bandwidth, "LFM signal bandwidth, Hz", NULL },
         { "duration", 't', 0, G_OPTION_ARG_DOUBLE, &duration, "Signal duration, s", NULL },
+        { "scale", 'a', 0, G_OPTION_ARG_DOUBLE, &conv_scale, "Convolution scale", NULL },
         { "error", 'e', 0, G_OPTION_ARG_DOUBLE, &conv_error, "Admissible error, %", NULL },
         { "signal", 's', 0, G_OPTION_ARG_STRING, &signal, "Signal type (tone, lfm)", NULL },
         { NULL }
@@ -110,7 +112,7 @@ main (int argc, char **argv)
 
   /* Выполняем свёртку. */
   hyscan_convolution_set_image (convolution, image, image_size);
-  hyscan_convolution_convolve (convolution, data, data_size);
+  hyscan_convolution_convolve (convolution, data, data_size, conv_scale);
 
   /* Для тонального сигнала проверяем, что его свёртка совпадает с треугольником,
      начинающимся с signal_size, пиком на 2 * signal_size и спадающим до 3 * signal_size. */
@@ -120,12 +122,12 @@ main (int argc, char **argv)
         {
           if (j == 0)
             {
-              amplitude[i] = 1.0;
+              amplitude[i] = conv_scale;
             }
           else
             {
-              amplitude[i + j] = 1.0 - (gfloat) j / image_size;
-              amplitude[i - j] = 1.0 - (gfloat) j / image_size;
+              amplitude[i + j] = conv_scale * (1.0 - (gfloat) j / image_size);
+              amplitude[i - j] = conv_scale * (1.0 - (gfloat) j / image_size);
             }
         }
     }
@@ -143,12 +145,12 @@ main (int argc, char **argv)
 
           if (j == 0)
             {
-              amplitude[i] = 1.0;
+              amplitude[i] = conv_scale;
             }
           else
             {
-              amplitude[i + j] = fabs (sin (phase) / phase);
-              amplitude[i - j] = fabs (sin (phase) / phase);
+              amplitude[i + j] = conv_scale * fabs (sin (phase) / phase);
+              amplitude[i - j] = conv_scale * fabs (sin (phase) / phase);
             }
         }
 

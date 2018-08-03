@@ -120,7 +120,7 @@ hyscan_convolution_new (void)
   return g_object_new (HYSCAN_TYPE_CONVOLUTION, NULL);
 }
 
-/* Функция задаёт образец сигнала для свёртки. */
+/* Функция задаёт образ сигнала для свёртки. */
 gboolean
 hyscan_convolution_set_image (HyScanConvolution        *convolution,
                               const HyScanComplexFloat *image,
@@ -178,12 +178,12 @@ hyscan_convolution_set_image (HyScanConvolution        *convolution,
       return FALSE;
     }
 
-  /* Копируем образец сигнала. */
+  /* Копируем образ сигнала. */
   priv->fft_image = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
   memset (priv->fft_image, 0, priv->fft_size * sizeof(HyScanComplexFloat));
   memcpy (priv->fft_image, image, n_points * sizeof(HyScanComplexFloat));
 
-  /* Подготавливаем образец к свёртке и делаем его комплексно сопряжённым. */
+  /* Подготавливаем образ к свёртке и делаем его комплексно сопряжённым. */
   image_buff = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
 
   pffft_transform_ordered (priv->fft,
@@ -209,15 +209,16 @@ hyscan_convolution_set_image (HyScanConvolution        *convolution,
  * Свертка выполняется блоками по fft_size элементов, при этом каждый следующий блок смещен относительно
  * предыдущего на (fft_size / 2) элементов. Входные данные находятся в ibuff, где над ними производится
  * прямое преобразование Фурье с сохранением результата в obuff, но уже без перекрытия, т.е. с шагом fft_size.
- * Затем производится перемножение ("свертка") с нужным образцом сигнала и обратное преобразование Фурье
+ * Затем производится перемножение ("свертка") с нужным образ сигнала и обратное преобразование Фурье
  * в ibuff. Таким образом в ibuff оказываются необходимые данные, разбитые на некоторое число блоков,
  * в каждом из которых нам нужны только первые (fft_size / 2) элементов. Так как операции над блоками
- * происходят независимо друг от друга это процесс можно выполнять параллельно, что и производится
+ * происходят независимо друг от друга этот процесс можно выполнять параллельно, что и производится
  * за счет использования библиотеки OpenMP. */
 gboolean
 hyscan_convolution_convolve (HyScanConvolution  *convolution,
                              HyScanComplexFloat *data,
-                             guint32             n_points)
+                             guint32             n_points,
+                             gfloat              scale)
 {
   HyScanConvolutionPrivate *priv;
 
@@ -231,7 +232,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
   priv = convolution->priv;
 
   /* Свёртка невозможна. */
-  if (priv->fft == NULL || priv->fft_image == NULL )
+  if (priv->fft == NULL || priv->fft_image == NULL)
     return FALSE;
 
   full_size = priv->fft_size;
@@ -288,7 +289,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
                                   (const gfloat*) (priv->obuff + offset),
                                   (const gfloat*) priv->fft_image,
                                   (gfloat*) (priv->ibuff + offset),
-                                  priv->fft_scale);
+                                  scale * priv->fft_scale);
 
       /* Выполняем обратное преобразование Фурье. */
       pffft_zreorder (priv->fft,

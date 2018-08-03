@@ -73,7 +73,7 @@ main (int    argc,
                 memcpy (data + (k * fft_sizes[i]), image, fft_sizes[i] * sizeof (HyScanComplexFloat));
 
               g_timer_start (timer);
-              hyscan_convolution_convolve (convolution, data, factor * fft_sizes[i]);
+              hyscan_convolution_convolve (convolution, data, factor * fft_sizes[i], 1.0);
               elapsed += g_timer_elapsed (timer, NULL);
 
               convs += 1;
