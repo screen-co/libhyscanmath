@@ -2,6 +2,7 @@
 add_library (${HYSCAN_MATH_LIBRARY} SHARED
              pffft.c
              hyscan-signal.c
+             hyscan-echo-svp.c
              hyscan-convolution.c)
 
 target_link_libraries (${HYSCAN_MATH_LIBRARY} ${GLIB2_LIBRARIES} ${MATH_LIBRARIES} ${HYSCAN_LIBRARIES})
