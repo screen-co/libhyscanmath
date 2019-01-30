@@ -21,7 +21,7 @@ if (${CMAKE_C_COMPILER_ID} STREQUAL GNU OR ${CMAKE_C_COMPILER_ID} STREQUAL Clang
   if (HYSCAN_MATH_USE_OPENMP)
     set (OMP_FLAGS "-fopenmp")
   endif ()
-  set (C_FLAGS "-Wall -Wextra -Wno-unused-parameter ${OMP_FLAGS} $ENV{CFLAGS}")
+  set (C_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers ${OMP_FLAGS} $ENV{CFLAGS}")
   set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 ${C_FLAGS}")
   set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O1 ${C_FLAGS}")
   set (MATH_LIBRARIES m)
