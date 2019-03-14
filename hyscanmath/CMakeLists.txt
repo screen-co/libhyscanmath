@@ -27,6 +27,7 @@ install (FILES "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyscanmath-${HYSCAN_MAJOR_VERS
          PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
 install (FILES hyscan-signal.h
+               hyscan-echo-svp.h
                hyscan-convolution.h
          COMPONENT development
          DESTINATION "include/hyscan-${HYSCAN_MAJOR_VERSION}/hyscanmath"
