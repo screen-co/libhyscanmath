@@ -3,7 +3,8 @@ add_library (${HYSCAN_MATH_LIBRARY} SHARED
              pffft.c
              hyscan-signal.c
              hyscan-echo-svp.c
-             hyscan-convolution.c)
+             hyscan-convolution.c
+             hyscan-inter2-doa.c)
 
 target_link_libraries (${HYSCAN_MATH_LIBRARY} ${GLIB2_LIBRARIES} ${MATH_LIBRARIES} ${HYSCAN_LIBRARIES})
 
@@ -29,6 +30,7 @@ install (FILES "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyscanmath-${HYSCAN_MAJOR_VERS
 install (FILES hyscan-signal.h
                hyscan-echo-svp.h
                hyscan-convolution.h
+               hyscan-inter2-doa.h
          COMPONENT development
          DESTINATION "include/hyscan-${HYSCAN_MAJOR_VERSION}/hyscanmath"
          PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
