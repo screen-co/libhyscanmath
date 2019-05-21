@@ -1,11 +1,57 @@
-/*
- * \file hyscan-convolution.c
+/* hyscan-convolution.c
  *
- * \brief Исходный файл класса свёртки данных
- * \author Andrei Fadeev (andrei@webcontrol.ru)
- * \date 2015
- * \license Проприетарная лицензия ООО "Экран"
+ * Copyright 2015-2019 Screen LLC, Andrei Fadeev <andrei@webcontrol.ru>
  *
+ * This file is part of HyScanMath.
+ *
+ * HyScanMath is dual-licensed: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HyScanMath is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this library. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Alternatively, you can license this code under a commercial license.
+ * Contact the Screen LLC in this case - <info@screen-co.ru>.
+ */
+
+/* HyScanMath имеет двойную лицензию.
+ *
+ * Во-первых, вы можете распространять HyScanMath на условиях Стандартной
+ * Общественной Лицензии GNU версии 3, либо по любой более поздней версии
+ * лицензии (по вашему выбору). Полные положения лицензии GNU приведены в
+ * <http://www.gnu.org/licenses/>.
+ *
+ * Во-вторых, этот программный код можно использовать по коммерческой
+ * лицензии. Для этого свяжитесь с ООО Экран - <info@screen-co.ru>.
+ */
+
+/**
+ * SECTION: hyscan-convolution
+ * @Short_description: класс свёртки данных
+ * @Title: HyScanConvolution
+ *
+ * Класс HyScanConvolution используется для выполнения свёртки данных с
+ * образом. Данные и образ для свёртки должны быть представлены в комплексном
+ * виде (#HyScanComplexFloat).
+ *
+ * Объект для выполнения свёртки создаётся функцией #hyscan_convolution_new.
+ *
+ * Перед выполнением свёртки необходимо задать образ с которым будет выполняться
+ * свёртка. Для этого предназначена функция #hyscan_convolution_set_image.
+ * Образ для свёртки можно изменять в процессе работы с объектом. При повторных
+ * вызовах функции #hyscan_convolution_set_image будет установлен новый образ
+ * для свёртки.
+ *
+ * Функция #hyscan_convolution_convolve выполняет свертку данных.
+ *
+ * HyScanConvolution не поддерживает работу в многопоточном режиме.
  */
 
 #include "hyscan-convolution.h"
@@ -113,14 +159,30 @@ hyscan_convolution_realloc_buffers (HyScanConvolutionPrivate *priv,
     }
 }
 
-/* Функция создаёт новый объект HyScanConvolution. */
+/**
+ * hyscan_convolution_new:
+ *
+ * Функция создаёт новый объект #HyScanConvolution.
+ *
+ * Returns: #HyScanConvolution. Для удаления #g_object_unref.
+ */
 HyScanConvolution *
 hyscan_convolution_new (void)
 {
   return g_object_new (HYSCAN_TYPE_CONVOLUTION, NULL);
 }
 
-/* Функция задаёт образ сигнала для свёртки. */
+/**
+ * hyscan_convolution_set_image:
+ * @convolution: указатель на #HyScanConvolution
+ * @image: (nullable) (array length=n_points) (transfer none): образ для свёртки
+ * @n_points: размер образа в точках
+ *
+ * Функция задаёт образ сигнала для свёртки. Если образ сигнала установлен в
+ * NULL, свёртка отключается.
+ *
+ * Returns: %TRUE если образ для свёртки установлен, иначе %FALSE.
+ */
 gboolean
 hyscan_convolution_set_image (HyScanConvolution        *convolution,
                               const HyScanComplexFloat *image,
@@ -205,15 +267,20 @@ hyscan_convolution_set_image (HyScanConvolution        *convolution,
   return TRUE;
 }
 
-/* Функция выполняет свертку данных.
- * Свертка выполняется блоками по fft_size элементов, при этом каждый следующий блок смещен относительно
- * предыдущего на (fft_size / 2) элементов. Входные данные находятся в ibuff, где над ними производится
- * прямое преобразование Фурье с сохранением результата в obuff, но уже без перекрытия, т.е. с шагом fft_size.
- * Затем производится перемножение ("свертка") с нужным образ сигнала и обратное преобразование Фурье
- * в ibuff. Таким образом в ibuff оказываются необходимые данные, разбитые на некоторое число блоков,
- * в каждом из которых нам нужны только первые (fft_size / 2) элементов. Так как операции над блоками
- * происходят независимо друг от друга этот процесс можно выполнять параллельно, что и производится
- * за счет использования библиотеки OpenMP. */
+/**
+ * hyscan_convolution_convolve:
+ * @convolution: указатель на #HyScanConvolution
+ * @data: (array length=n_points) (transfer none): данные для свёртки
+ * @n_points: размер данных в точках
+ * @scale: коэффициент масштабирования
+ *
+ * Функция выполняет свёртку данных с образом. Результат свёртки помещается
+ * во входной массив. При свёртке производится автоматическое нормирование
+ * на размер образа свёртки. Пользователь может указать дополнительный
+ * коэффициент на который будут домножены данные после свёртки.
+ *
+ * Returns: %TRUE если образ для свёртки установлен, иначе %FALSE.
+ */
 gboolean
 hyscan_convolution_convolve (HyScanConvolution  *convolution,
                              HyScanComplexFloat *data,
@@ -230,6 +297,18 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
   g_return_val_if_fail (HYSCAN_IS_CONVOLUTION (convolution), FALSE);
 
   priv = convolution->priv;
+
+  /* Свертка выполняется блоками по fft_size элементов, при этом каждый
+   * следующий блок смещен относительно предыдущего на (fft_size / 2)
+   * элементов. Входные данные находятся в ibuff, где над ними производится
+   * прямое преобразование Фурье с сохранением результата в obuff, но уже
+   * без перекрытия, т.е. с шагом fft_size. Затем производится перемножение
+   * ("свертка") с нужным образ сигнала и обратное преобразование Фурье в
+   * ibuff. Таким образом в ibuff оказываются необходимые данные, разбитые
+   * на некоторое число блоков, в каждом из которых нам нужны только первые
+   * (fft_size / 2) элементов. Так как операции над блоками происходят
+   * независимо друг от друга этот процесс можно выполнять параллельно, что
+   * и производится за счет использования библиотеки OpenMP. */
 
   /* Свёртка невозможна. */
   if (priv->fft == NULL || priv->fft_image == NULL)

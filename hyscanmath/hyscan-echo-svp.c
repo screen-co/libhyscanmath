@@ -37,7 +37,7 @@
 
 /**
  * hyscan_echo_svp_calc:
- * @time:
+ * @time: время приёма эхосигнала, с
  * @svp: (transfer none) (element-type HyScanSoundVelocity): профиль скорости звука
  *
  * Функция рассчитывает глубину с учётом профиля скорости звука.

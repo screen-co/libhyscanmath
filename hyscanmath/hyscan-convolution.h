@@ -1,27 +1,35 @@
-/**
- * \file hyscan-convolution.h
+/* hyscan-convolution.h
  *
- * \brief Заголовочный файл класса свёртки данных
- * \author Andrei Fadeev (andrei@webcontrol.ru)
- * \date 2015
- * \license Проприетарная лицензия ООО "Экран"
+ * Copyright 2015-2019 Screen LLC, Andrei Fadeev <andrei@webcontrol.ru>
  *
- * \defgroup HyScanConvolution HyScanConvolution - класс свёртки данных
+ * This file is part of HyScanMath.
  *
- * Класс HyScanConvolution используется для выполнения свёртки данных с образом. Данные и образ
- * для свёртки должны быть представлены в комплексном виде (\link HyScanComplexFloat \endlink).
+ * HyScanMath is dual-licensed: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * Объект для выполнения свёртки создаётся функцией #hyscan_convolution_new.
+ * HyScanMath is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Перед выполнением свёртки необходимо задать образ с которым будет выполняться свёртка. Для
- * этого предназначена функция #hyscan_convolution_set_image. Образец для свёртки можно изменять
- * в процессе работы с объектом. При повторных вызовах функции #hyscan_convolution_set_image
- * будет установлен новый образ для свёртки.
+ * You should have received a copy of the GNU General Public License
+ * along with this library. If not, see <http://www.gnu.org/licenses/>.
  *
- * Функция #hyscan_convolution_convolve выполняет свертку данных.
+ * Alternatively, you can license this code under a commercial license.
+ * Contact the Screen LLC in this case - <info@screen-co.ru>.
+ */
+
+/* HyScanMath имеет двойную лицензию.
  *
- * HyScanConvolution не поддерживает работу в многопоточном режиме.
+ * Во-первых, вы можете распространять HyScanMath на условиях Стандартной
+ * Общественной Лицензии GNU версии 3, либо по любой более поздней версии
+ * лицензии (по вашему выбору). Полные положения лицензии GNU приведены в
+ * <http://www.gnu.org/licenses/>.
  *
+ * Во-вторых, этот программный код можно использовать по коммерческой
+ * лицензии. Для этого свяжитесь с ООО Экран - <info@screen-co.ru>.
  */
 
 #ifndef __HYSCAN_CONVOLUTION_H__
@@ -56,50 +64,16 @@ struct _HyScanConvolutionClass
 };
 
 HYSCAN_API
-GType hyscan_convolution_get_type (void);
+GType                  hyscan_convolution_get_type     (void);
 
-/**
- *
- * Функция создаёт новый объект \link HyScanConvolution \endlink.
- *
- * \return Указатель на объект \link HyScanConvolution \endlink.
- *
- *
- */
 HYSCAN_API
 HyScanConvolution     *hyscan_convolution_new          (void);
 
-/**
- *
- * Функция задаёт образ сигнала для свёртки.
- *
- * \param convolution указатель на объект \link HyScanConvolution \endlink;
- * \param image образ для свёртки;
- * \param n_points размер образа в точках.
- *
- * \return TRUE - если образ для свёртки установлен, FALSE - в случае ошибки.
- *
- */
 HYSCAN_API
 gboolean               hyscan_convolution_set_image    (HyScanConvolution         *convolution,
                                                         const HyScanComplexFloat  *image,
                                                         guint32                    n_points);
 
-/**
- *
- * Функция выполняет свёртку данных с образом. Результат свёртки помещается
- * во входной массив. При свёртке производится автоматическое нормирование
- * на размер образа свёртки. Пользователь может указать дополнительный
- * коэффициент на который будут домножены данные после свёртки.
- *
- * \param convolution указатель на объект \link HyScanConvolution \endlink;
- * \param data данные для свёртки;
- * \param n_points размер данных в точках;
- * \param scale коэффициент масштабирования.
- *
- * \return TRUE - если свёртка выполнена, FALSE - в случае ошибки.
- *
- */
 HYSCAN_API
 gboolean               hyscan_convolution_convolve     (HyScanConvolution         *convolution,
                                                         HyScanComplexFloat        *data,
