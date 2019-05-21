@@ -3,6 +3,8 @@ cmake_minimum_required (VERSION 2.8)
 
 project (libhyscanmath)
 
+enable_testing()
+
 set (HYSCAN_MAJOR_VERSION 5)
 set (HYSCAN_MATH_VERSION 0)
 set (HYSCAN_MATH_LIBRARY "hyscanmath-${HYSCAN_MAJOR_VERSION}")
