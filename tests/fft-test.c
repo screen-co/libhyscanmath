@@ -57,7 +57,7 @@ main (int    argc,
           image[j].im = sin (phase);
         }
 
-      if (!hyscan_convolution_set_image (convolution, image, fft_sizes[i]))
+      if (!hyscan_convolution_set_image_td (convolution, 0, image, fft_sizes[i]))
         {
           g_print ("failed\n");
           return -1;
@@ -73,7 +73,7 @@ main (int    argc,
                 memcpy (data + (k * fft_sizes[i]), image, fft_sizes[i] * sizeof (HyScanComplexFloat));
 
               g_timer_start (timer);
-              hyscan_convolution_convolve (convolution, data, factor * fft_sizes[i], 1.0);
+              hyscan_convolution_convolve (convolution, 0, data, factor * fft_sizes[i], 1.0);
               elapsed += g_timer_elapsed (timer, NULL);
 
               convs += 1;
