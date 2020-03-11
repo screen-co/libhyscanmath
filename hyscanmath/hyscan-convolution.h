@@ -64,21 +64,32 @@ struct _HyScanConvolutionClass
 };
 
 HYSCAN_API
-GType                  hyscan_convolution_get_type     (void);
+GType               hyscan_convolution_get_type       (void);
 
 HYSCAN_API
-HyScanConvolution     *hyscan_convolution_new          (void);
+HyScanConvolution * hyscan_convolution_new            (void);
 
 HYSCAN_API
-gboolean               hyscan_convolution_set_image    (HyScanConvolution         *convolution,
-                                                        const HyScanComplexFloat  *image,
-                                                        guint32                    n_points);
+guint32             hyscan_convolution_get_fft_size   (guint32                    size);
 
 HYSCAN_API
-gboolean               hyscan_convolution_convolve     (HyScanConvolution         *convolution,
-                                                        HyScanComplexFloat        *data,
-                                                        guint32                    n_points,
-                                                        gfloat                     scale);
+gboolean            hyscan_convolution_set_image_td   (HyScanConvolution         *convolution,
+                                                       guint                      index,
+                                                       const HyScanComplexFloat  *image,
+                                                       guint32                    n_points);
+
+HYSCAN_API
+gboolean            hyscan_convolution_set_image_fd   (HyScanConvolution         *convolution,
+                                                       guint                      index,
+                                                       const HyScanComplexFloat  *image,
+                                                       guint32                    n_points);
+
+HYSCAN_API
+gboolean            hyscan_convolution_convolve       (HyScanConvolution         *convolution,
+                                                       guint                      index,
+                                                       HyScanComplexFloat        *data,
+                                                       guint32                    n_points,
+                                                       gfloat                     scale);
 
 G_END_DECLS
 

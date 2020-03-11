@@ -44,10 +44,16 @@
  * Объект для выполнения свёртки создаётся функцией #hyscan_convolution_new.
  *
  * Перед выполнением свёртки необходимо задать образ с которым будет выполняться
- * свёртка. Для этого предназначена функция #hyscan_convolution_set_image.
- * Образ для свёртки можно изменять в процессе работы с объектом. При повторных
- * вызовах функции #hyscan_convolution_set_image будет установлен новый образ
- * для свёртки.
+ * свёртка. Образ можем быть задан во временной области, для этого предназначена
+ * функция #hyscan_convolution_set_image_td. Или в частотной области, функция
+ * #hyscan_convolution_set_image_fd. Образ для свёртки можно изменять в процессе
+ * работы с объектом.
+ *
+ * Образ свёртки в частотной области должен иметь определённый размер. Функция
+ *
+ *
+ * Класс поддерживает установку сразу нескольких образов, при условии что они
+ * имеют одинаковый размер. Определяющим является размер для образа с номером 0.
  *
  * Функция #hyscan_convolution_convolve выполняет свертку данных.
  *
@@ -63,6 +69,12 @@
 #ifdef HYSCAN_MATH_USE_OPENMP
 #include <omp.h>
 #endif
+
+typedef enum
+{
+  HYSCAN_CONVOLUTION_IMAGE_TD,
+  HYSCAN_CONVOLUTION_IMAGE_FD
+} HyScanConvolutionImageType;
 
 /* Таблица доспустимых размеров FFT преобразований. */
 static guint
@@ -102,13 +114,20 @@ struct _HyScanConvolutionPrivate
   PFFFT_Setup                 *fft;            /* Коэффициенты преобразования Фурье. */
   guint32                      fft_size;       /* Размер преобразования Фурье. */
   gfloat                       fft_scale;      /* Коэффициент масштабирования свёртки. */
-  HyScanComplexFloat          *fft_image;      /* Образец сигнала для свёртки. */
+  GHashTable                  *fft_images;     /* Образы для свёртки. */
 };
 
-static void    hyscan_convolution_object_finalize      (GObject                       *object);
+static void      hyscan_convolution_object_constructed   (GObject                    *object);
+static void      hyscan_convolution_object_finalize      (GObject                    *object);
 
-static void    hyscan_convolution_realloc_buffers      (HyScanConvolutionPrivate      *priv,
-                                                        guint                          n_points);
+static void      hyscan_convolution_realloc_buffers      (HyScanConvolutionPrivate   *priv,
+                                                          guint32                     n_points);
+
+static gboolean  hyscan_convolution_set_image            (HyScanConvolutionPrivate   *priv,
+                                                          guint                       index,
+                                                          HyScanConvolutionImageType  type,
+                                                          const HyScanComplexFloat   *image,
+                                                          guint32                     n_points);
 
 G_DEFINE_TYPE_WITH_PRIVATE (HyScanConvolution, hyscan_convolution, G_TYPE_OBJECT);
 
@@ -117,6 +136,7 @@ hyscan_convolution_class_init (HyScanConvolutionClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS( klass );
 
+  object_class->constructed = hyscan_convolution_object_constructed;
   object_class->finalize = hyscan_convolution_object_finalize;
 }
 
@@ -124,6 +144,15 @@ static void
 hyscan_convolution_init (HyScanConvolution *convolution)
 {
   convolution->priv = hyscan_convolution_get_instance_private (convolution);
+}
+
+static void
+hyscan_convolution_object_constructed (GObject *object)
+{
+  HyScanConvolution *convolution = HYSCAN_CONVOLUTION (object);
+  HyScanConvolutionPrivate *priv = convolution->priv;
+
+  priv->fft_images = g_hash_table_new_full (NULL, NULL, NULL, pffft_aligned_free);
 }
 
 static void
@@ -136,16 +165,16 @@ hyscan_convolution_object_finalize (GObject *object)
   pffft_aligned_free (priv->obuff);
   pffft_aligned_free (priv->wbuff);
 
-  pffft_aligned_free (priv->fft_image);
-  pffft_destroy_setup (priv->fft);
+  g_hash_table_unref (priv->fft_images);
+  g_clear_pointer (&priv->fft, pffft_destroy_setup);
 
   G_OBJECT_CLASS (hyscan_convolution_parent_class)->finalize (object);
 }
 
-/* Функция выделяет память для буферов джанных. */
+/* Функция выделяет память для буферов данных. */
 static void
 hyscan_convolution_realloc_buffers (HyScanConvolutionPrivate *priv,
-                                    guint                     n_points)
+                                    guint32                   n_points)
 {
   if (n_points > priv->max_points)
     {
@@ -157,6 +186,126 @@ hyscan_convolution_realloc_buffers (HyScanConvolutionPrivate *priv,
       priv->obuff = pffft_aligned_malloc (priv->max_points * sizeof(HyScanComplexFloat));
       priv->wbuff = pffft_aligned_malloc (priv->max_points * sizeof(HyScanComplexFloat));
     }
+}
+
+/* Функция задаёт образ для свёртки. */
+static gboolean
+hyscan_convolution_set_image (HyScanConvolutionPrivate   *priv,
+                              guint                       index,
+                              HyScanConvolutionImageType  type,
+                              const HyScanComplexFloat   *image,
+                              guint32                     n_points)
+{
+  HyScanComplexFloat *fft_image;
+  guint32 conv_size;
+  guint32 fft_size;
+  guint32 i;
+
+  /* Очищаем текущий образ. */
+  if (index == 0)
+    g_hash_table_remove_all (priv->fft_images);
+  else
+    g_hash_table_remove (priv->fft_images, GINT_TO_POINTER (index));
+
+  /* Пользователь отменил свёртку. */
+  if (image == NULL)
+    return TRUE;
+
+  /* Ищем оптимальный размер свёртки для библиотеки pffft (см. pffft.h).
+   * Для образа во временной области размер FFT преобразования увеличиваем в
+   * два раза. А для частотной области размер образа должен быть точно равен
+   * размеру FFT преобразования. */
+  conv_size = (type == HYSCAN_CONVOLUTION_IMAGE_TD) ? 2 * n_points : n_points;
+  fft_size = hyscan_convolution_get_fft_size (conv_size);
+  if (fft_size == 0)
+    {
+      g_warning ("HyScanConvolution: fft size too big");
+      return FALSE;
+    }
+  else if ((type == HYSCAN_CONVOLUTION_IMAGE_FD) && (conv_size != fft_size))
+    {
+      g_warning ("HyScanConvolution: image size mismatch with fft size");
+      return FALSE;
+    }
+
+  /* Параметры преобразования Фурье. */
+  if (index == 0)
+    {
+      if (priv->fft_size != fft_size)
+        {
+          g_clear_pointer (&priv->fft, pffft_destroy_setup);
+
+          priv->fft = pffft_new_setup (fft_size, PFFFT_COMPLEX);
+          if (priv->fft == NULL)
+            {
+              g_warning ("HyScanConvolution: can't setup fft");
+              return FALSE;
+            }
+
+          priv->fft_size = fft_size;
+
+          /* Обновляем буферы. */
+          hyscan_convolution_realloc_buffers (priv, 16 * priv->fft_size);
+
+          /* Коэффициент масштабирования свёртки. */
+          priv->fft_scale = 1.0 / ((gfloat) priv->fft_size * (gfloat) n_points);
+        }
+    }
+  else if (priv->fft_size != fft_size)
+    {
+      g_warning ("HyScanConvolution: fft size mismatch");
+      return FALSE;
+    }
+
+  /* Буфер для образа в частотной области. */
+  fft_image = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
+
+  /* Подготавливаем образ во временной области к свёртке и
+   * делаем его комплексно сопряжённым. */
+  if (type == HYSCAN_CONVOLUTION_IMAGE_TD)
+    {
+      HyScanComplexFloat *image_buff;
+
+      image_buff = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
+      memset (image_buff, 0, priv->fft_size * sizeof(HyScanComplexFloat));
+      memcpy (image_buff, image, n_points * sizeof(HyScanComplexFloat));
+
+      pffft_transform_ordered (priv->fft,
+                               (const gfloat*) image_buff,
+                               (gfloat*) image_buff,
+                               (gfloat*) priv->wbuff,
+                               PFFFT_FORWARD);
+
+      for (i = 0; i < priv->fft_size; i++)
+        image_buff[i].im = -image_buff[i].im;
+
+      pffft_zreorder (priv->fft,
+                      (const gfloat*) image_buff,
+                      (gfloat*) fft_image,
+                      PFFFT_BACKWARD);
+
+      pffft_aligned_free (image_buff);
+    }
+
+  /* Образ в частотной области преобразуем ко внутреннему представлению PFFFT. */
+  else
+    {
+      HyScanComplexFloat *image_buff;
+
+      image_buff = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
+
+      memcpy (image_buff, image, n_points * sizeof(HyScanComplexFloat));
+      pffft_zreorder (priv->fft,
+                      (const gfloat*) image_buff,
+                      (gfloat*) fft_image,
+                      PFFFT_BACKWARD);
+
+      pffft_aligned_free (image_buff);
+    }
+
+  g_hash_table_insert (priv->fft_images, GINT_TO_POINTER (index), fft_image);
+
+  return TRUE;
 }
 
 /**
@@ -173,103 +322,93 @@ hyscan_convolution_new (void)
 }
 
 /**
- * hyscan_convolution_set_image:
+ * hyscan_convolution_get_fft_size:
+ * @fft_size: желаемый размер FFT преобразования
+ *
+ * Функция возвращает допустимый размер FFT преобразования для
+ * указанного желаемого. Возвращаемый размер всегда больше или
+ * равен желаемому.
+ *
+ * Returns: Допустимый размер FFT преобразования или 0.
+ */
+guint32
+hyscan_convolution_get_fft_size (guint32 fft_size)
+{
+  guint i;
+
+  for (i = 0; i < G_N_ELEMENTS (fft_sizes); i++)
+    {
+      if (fft_sizes[i] >= fft_size)
+        return fft_sizes[i];
+    }
+
+  return 0;
+}
+
+/**
+ * hyscan_convolution_set_image_td:
  * @convolution: указатель на #HyScanConvolution
+ * @index: номер образа сигнала
  * @image: (nullable) (array length=n_points) (transfer none): образ для свёртки
  * @n_points: размер образа в точках
  *
- * Функция задаёт образ сигнала для свёртки. Если образ сигнала установлен в
- * NULL, свёртка отключается.
+ * Функция задаёт образ для свёртки во временной области. Если образ установлен
+ * в NULL, свёртка отключается.
+ *
+ * При установке образа с номером 0, остальные образы обнуляются. Их необходимо
+ * задать заново и их размер должен совпадать с нулевым образом.
  *
  * Returns: %TRUE если образ для свёртки установлен, иначе %FALSE.
  */
 gboolean
-hyscan_convolution_set_image (HyScanConvolution        *convolution,
-                              const HyScanComplexFloat *image,
-                              guint32                   n_points)
+hyscan_convolution_set_image_td (HyScanConvolution        *convolution,
+                                 guint                     index,
+                                 const HyScanComplexFloat *image,
+                                 guint32                   n_points)
 {
-  HyScanConvolutionPrivate *priv;
-
-  HyScanComplexFloat *image_buff;
-
-  guint32 conv_size = 2 * n_points;
-  guint32 opt_size = 0;
-  guint32 i;
-
   g_return_val_if_fail (HYSCAN_IS_CONVOLUTION (convolution), FALSE);
 
-  priv = convolution->priv;
+  return hyscan_convolution_set_image (convolution->priv,
+                                       index,
+                                       HYSCAN_CONVOLUTION_IMAGE_TD,
+                                       image,
+                                       n_points);
+}
 
-  /* Отменяем свёртку с текущим сигналом. */
-  g_clear_pointer (&priv->fft, pffft_destroy_setup);
-  g_clear_pointer (&priv->fft_image, pffft_aligned_free);
-  priv->fft_size = 2;
+/**
+ * hyscan_convolution_set_image_fd:
+ * @convolution: указатель на #HyScanConvolution
+ * @index: номер образа сигнала
+ * @image: (nullable) (array length=n_points) (transfer none): образ для свёртки
+ * @n_points: размер образа в точках
+ *
+ * Функция задаёт образ для свёртки в частотной области. Если образ установлен
+ * в NULL, свёртка отключается.
+ *
+ * При установке образа с номером 0, остальные образы обнуляются. Их необходимо
+ * задать заново и их размер должен совпадать с нулевым образом.
+ *
+ * Returns: %TRUE если образ для свёртки установлен, иначе %FALSE.
+ */
+gboolean
+hyscan_convolution_set_image_fd (HyScanConvolution        *convolution,
+                                 guint                     index,
+                                 const HyScanComplexFloat *image,
+                                 guint32                   n_points)
+{
+  g_return_val_if_fail (HYSCAN_IS_CONVOLUTION (convolution), FALSE);
 
-  /* Пользователь отменил свёртку. */
-  if (image == NULL)
-    return TRUE;
-
-  /* Ищем оптимальный размер свёртки для библиотеки pffft_new_setup (см. pffft.h). */
-  opt_size = G_MAXUINT32;
-  for (i = 0; i < (sizeof (fft_sizes) / sizeof (guint)); i++)
-    if (conv_size <= fft_sizes[i])
-      {
-        opt_size = fft_sizes[i];
-        break;
-      }
-
-  if (opt_size == G_MAXUINT32)
-    {
-      g_critical ("HyScanConvolution: fft size too big");
-      return FALSE;
-    }
-
-  priv->fft_size = opt_size;
-
-  /* Обновляем буферы. */
-  hyscan_convolution_realloc_buffers(priv, 16 * priv->fft_size);
-
-  /* Коэффициент масштабирования свёртки. */
-  priv->fft_scale = 1.0 / ((gfloat) priv->fft_size * (gfloat) n_points);
-
-  /* Параметры преобразования Фурье. */
-  priv->fft = pffft_new_setup (priv->fft_size, PFFFT_COMPLEX);
-  if (!priv->fft)
-    {
-      g_critical ("HyScanConvolution: can't setup fft");
-      return FALSE;
-    }
-
-  /* Копируем образ сигнала. */
-  priv->fft_image = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
-  memset (priv->fft_image, 0, priv->fft_size * sizeof(HyScanComplexFloat));
-  memcpy (priv->fft_image, image, n_points * sizeof(HyScanComplexFloat));
-
-  /* Подготавливаем образ к свёртке и делаем его комплексно сопряжённым. */
-  image_buff = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
-
-  pffft_transform_ordered (priv->fft,
-                           (const gfloat*) priv->fft_image,
-                           (gfloat*) image_buff,
-                           (gfloat*) priv->wbuff,
-                           PFFFT_FORWARD);
-
-  for (i = 0; i < priv->fft_size; i++)
-    image_buff[i].im = -image_buff[i].im;
-
-  pffft_zreorder (priv->fft,
-                  (const gfloat*) image_buff,
-                  (gfloat*) priv->fft_image,
-                  PFFFT_BACKWARD);
-
-  pffft_aligned_free (image_buff);
-
-  return TRUE;
+  return hyscan_convolution_set_image (convolution->priv,
+                                       index,
+                                       HYSCAN_CONVOLUTION_IMAGE_FD,
+                                       image,
+                                       n_points);
 }
 
 /**
  * hyscan_convolution_convolve:
  * @convolution: указатель на #HyScanConvolution
+ * @index: номер образа сигнала
  * @data: (array length=n_points) (transfer none): данные для свёртки
  * @n_points: размер данных в точках
  * @scale: коэффициент масштабирования
@@ -279,15 +418,18 @@ hyscan_convolution_set_image (HyScanConvolution        *convolution,
  * на размер образа свёртки. Пользователь может указать дополнительный
  * коэффициент на который будут домножены данные после свёртки.
  *
- * Returns: %TRUE если образ для свёртки установлен, иначе %FALSE.
+ * Returns: %TRUE если свёртка выполнена, иначе %FALSE.
  */
 gboolean
 hyscan_convolution_convolve (HyScanConvolution  *convolution,
+                             guint               index,
                              HyScanComplexFloat *data,
                              guint32             n_points,
                              gfloat              scale)
 {
   HyScanConvolutionPrivate *priv;
+
+  HyScanComplexFloat *fft_image;
 
   guint32 full_size;
   guint32 half_size;
@@ -303,15 +445,16 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
    * элементов. Входные данные находятся в ibuff, где над ними производится
    * прямое преобразование Фурье с сохранением результата в obuff, но уже
    * без перекрытия, т.е. с шагом fft_size. Затем производится перемножение
-   * ("свертка") с нужным образ сигнала и обратное преобразование Фурье в
-   * ibuff. Таким образом в ibuff оказываются необходимые данные, разбитые
-   * на некоторое число блоков, в каждом из которых нам нужны только первые
+   * ("свертка") с нужным образом и обратное преобразование Фурье в ibuff.
+   * Таким образом в ibuff оказываются необходимые данные, разбитые на
+   * некоторое число блоков, в каждом из которых нам нужны только первые
    * (fft_size / 2) элементов. Так как операции над блоками происходят
    * независимо друг от друга этот процесс можно выполнять параллельно, что
    * и производится за счет использования библиотеки OpenMP. */
 
-  /* Свёртка невозможна. */
-  if (priv->fft == NULL || priv->fft_image == NULL)
+  /* Образ свёртки. */
+  fft_image = g_hash_table_lookup (priv->fft_images, GINT_TO_POINTER (index));
+  if (priv->fft == NULL || fft_image == NULL)
     return FALSE;
 
   full_size = priv->fft_size;
@@ -357,16 +500,16 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
       guint32 offset = i * full_size;
       guint32 used_size = MIN ((n_points - i * half_size), half_size);
 
-      /* Обнуляем выходной буфер, т.к. функция zconvolve_accumulate добавляет полученный результат
-         к значениям в этом буфере (нам это не нужно) ...*/
+      /* Обнуляем выходной буфер, т.к. функция zconvolve_accumulate добавляет
+       * полученный результат к значениям в этом буфере (нам это не нужно). */
       memset (priv->ibuff + offset,
               0,
               full_size * sizeof(HyScanComplexFloat));
 
-      /* ... и выполняем свёртку. */
+      /* Выполняем свёртку. */
       pffft_zconvolve_accumulate (priv->fft,
                                   (const gfloat*) (priv->obuff + offset),
-                                  (const gfloat*) priv->fft_image,
+                                  (const gfloat*) fft_image,
                                   (gfloat*) (priv->ibuff + offset),
                                   scale * priv->fft_scale);
 

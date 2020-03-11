@@ -6,7 +6,8 @@
 #include <math.h>
 
 int
-main (int argc, char **argv)
+main (int    argc,
+      char **argv)
 {
   gdouble frequency = 0.0;        /* Частота сигнала. */
   gdouble bandwidth = 0.0;        /* Полоса для ЛЧМ сигнала. */
@@ -111,8 +112,8 @@ main (int argc, char **argv)
     data[i] = image[j];
 
   /* Выполняем свёртку. */
-  hyscan_convolution_set_image (convolution, image, image_size);
-  hyscan_convolution_convolve (convolution, data, data_size, conv_scale);
+  hyscan_convolution_set_image_td (convolution, 0, image, image_size);
+  hyscan_convolution_convolve (convolution, 0, data, data_size, conv_scale);
 
   /* Для тонального сигнала проверяем, что его свёртка совпадает с треугольником,
      начинающимся с signal_size, пиком на 2 * signal_size и спадающим до 3 * signal_size. */
