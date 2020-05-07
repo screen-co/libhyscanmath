@@ -6,7 +6,8 @@ add_library (${HYSCAN_MATH_LIBRARY} SHARED
              hyscan-convolution.c
              hyscan-inter2-doa.c
              hyscan-ahrs.c
-             hyscan-ahrs-mahony.c)
+             hyscan-ahrs-mahony.c
+             hyscan-fft.c)
 
 target_link_libraries (${HYSCAN_MATH_LIBRARY} ${GLIB2_LIBRARIES} ${MATH_LIBRARIES} ${HYSCAN_LIBRARIES})
 
@@ -35,6 +36,7 @@ install (FILES hyscan-signal.h
                hyscan-inter2-doa.h
                hyscan-ahrs.h
                hyscan-ahrs-mahony.h
+               hyscan-fft.h
          COMPONENT development
          DESTINATION "include/hyscan-${HYSCAN_MAJOR_VERSION}/hyscanmath"
          PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
