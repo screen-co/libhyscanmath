@@ -36,4 +36,5 @@
 
 HYSCAN_API
 gdouble        hyscan_echo_svp_calc    (gdouble        time,
+                                        gdouble        voffset,
                                         GList         *svp);

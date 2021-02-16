@@ -38,6 +38,7 @@
 /**
  * hyscan_echo_svp_calc:
  * @time: время приёма эхосигнала, с
+ * @voffset: заглубление эхолота, м
  * @svp: (transfer none) (element-type HyScanSoundVelocity): профиль скорости звука
  *
  * Функция рассчитывает глубину с учётом профиля скорости звука.
@@ -46,33 +47,59 @@
  */
 gdouble
 hyscan_echo_svp_calc (gdouble  time,
+                      gdouble  voffset,
                       GList   *svp)
 {
+  gdouble pvelocity = 750.0;
   gdouble velocity = 750.0;
   gdouble depth = 0.0;
 
   if (!isfinite (time) || (time < 0.0))
     return -1.0;
 
+  /* Если указано заглубление, пропускаем часть профиля
+   * скорости звука до этого заглубления. */
+  while (svp != NULL)
+    {
+      HyScanSoundVelocity *sv = svp->data;
+
+      if (sv->depth > voffset)
+        break;
+
+      pvelocity = velocity;
+      velocity = sv->velocity / 2.0;
+
+      svp = g_list_next (svp);
+    }
+
+  /* Интегрируем пройденный путь с учётом профиля скорости звука. */
   while ((svp != NULL) && (time > 0.0))
     {
       HyScanSoundVelocity *sv = svp->data;
-      gdouble st = (sv->depth - depth) / velocity;
+      gdouble st;
 
+      /* Скорость звука в начальной и конечной точках профиля. */
+      pvelocity = velocity;
+      velocity = 0.5 * sv->velocity;
+
+      /* Время прохождения пути между двумя точками профиля скорости звука,
+       * с учётом усреднённой скорости звука. */
+      st = (sv->depth - voffset - depth) / (0.5 * (pvelocity + velocity));
       if (st < 0.0)
         {
           g_warning ("HyScanEchoSVP: profile error");
           return -1.0;
         }
 
+      /* Интегрирование по дистанции с учётом оставшегося времени. */
       st = MIN (st, time);
-      depth += velocity * st;
-      velocity = sv->velocity / 2.0;
+      depth += st * (0.5 * (pvelocity + velocity));
       time -= st;
 
       svp = g_list_next (svp);
     }
 
+  /* Остаток дистанции за пределами профиля. */
   depth += time * velocity;
 
   return depth;
