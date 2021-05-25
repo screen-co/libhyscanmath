@@ -2,12 +2,14 @@
 add_library (${HYSCAN_MATH_LIBRARY} SHARED
              pffft.c
              hyscan-fft.c
+             hyscan-stats.c
              hyscan-signal.c
              hyscan-echo-svp.c
+             hyscan-math-functions.c
              hyscan-convolution.c
+             hyscan-beamforming.c
              hyscan-inter2-doa.c
              hyscan-ahrs.c
-             hyscan-stats.c
              hyscan-ahrs-mahony.c)
 
 target_link_libraries (${HYSCAN_MATH_LIBRARY} ${GLIB2_LIBRARIES} ${MATH_LIBRARIES} ${HYSCAN_LIBRARIES})
@@ -32,12 +34,14 @@ install (FILES "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyscanmath-${HYSCAN_MAJOR_VERS
          PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
 install (FILES hyscan-fft.h
+               hyscan-stats.h
                hyscan-signal.h
                hyscan-echo-svp.h
+               hyscan-math-functions.h
                hyscan-convolution.h
+               hyscan-beamforming.h
                hyscan-inter2-doa.h
                hyscan-ahrs.h
-               hyscan-stats.h
                hyscan-ahrs-mahony.h
          COMPONENT development
          DESTINATION "include/hyscan-${HYSCAN_MAJOR_VERSION}/hyscanmath"
