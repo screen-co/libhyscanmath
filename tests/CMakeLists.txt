@@ -14,6 +14,8 @@ target_link_libraries (convolution-test ${TEST_LIBRARIES})
 target_link_libraries (imu-test ${TEST_LIBRARIES})
 target_link_libraries (ahrs-test ${TEST_LIBRARIES})
 
+add_test (NAME FFTTest COMMAND fft-test
+          WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 add_test (NAME ConvolutionTest:tone COMMAND convolution-test -d 1000000 -f 100000 -w 20000 -t 0.1 -s tone
           WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 add_test (NAME ConvolutionTest:lfm COMMAND convolution-test -d 1000000 -f 100000 -w 20000 -t 0.1 -s lfm

@@ -1,6 +1,7 @@
 
 add_library (${HYSCAN_MATH_LIBRARY} SHARED
              pffft.c
+             hyscan-fft.c
              hyscan-signal.c
              hyscan-echo-svp.c
              hyscan-convolution.c
@@ -30,7 +31,8 @@ install (FILES "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyscanmath-${HYSCAN_MAJOR_VERS
          DESTINATION "lib/pkgconfig"
          PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
-install (FILES hyscan-signal.h
+install (FILES hyscan-fft.h
+               hyscan-signal.h
                hyscan-echo-svp.h
                hyscan-convolution.h
                hyscan-inter2-doa.h

@@ -66,7 +66,7 @@
 #include <string.h>
 #include "pffft.h"
 
-#ifdef HYSCAN_MATH_USE_OPENMP
+#ifdef HYSCAN_OPEN_MP
 #include <omp.h>
 #endif
 
@@ -233,6 +233,8 @@ hyscan_convolution_set_image (HyScanConvolutionPrivate   *priv,
     {
       if (priv->fft_size != fft_size)
         {
+          g_clear_pointer (&priv->fft, pffft_destroy_setup);
+
           priv->fft = pffft_new_setup (fft_size, PFFFT_COMPLEX);
           if (priv->fft == NULL)
             {
@@ -241,6 +243,12 @@ hyscan_convolution_set_image (HyScanConvolutionPrivate   *priv,
             }
 
           priv->fft_size = fft_size;
+
+          /* Обновляем буферы. */
+          hyscan_convolution_realloc_buffers (priv, 16 * priv->fft_size);
+
+          /* Коэффициент масштабирования свёртки. */
+          priv->fft_scale = 1.0 / ((gfloat) priv->fft_size * (gfloat) n_points);
         }
     }
   else if (priv->fft_size != fft_size)
@@ -248,12 +256,6 @@ hyscan_convolution_set_image (HyScanConvolutionPrivate   *priv,
       g_warning ("HyScanConvolution: fft size mismatch");
       return FALSE;
     }
-
-  /* Обновляем буферы. */
-  hyscan_convolution_realloc_buffers (priv, 16 * priv->fft_size);
-
-  /* Коэффициент масштабирования свёртки. */
-  priv->fft_scale = 1.0 / ((gfloat) priv->fft_size * (gfloat) n_points);
 
   /* Буфер для образа в частотной области. */
   fft_image = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
@@ -285,10 +287,20 @@ hyscan_convolution_set_image (HyScanConvolutionPrivate   *priv,
       pffft_aligned_free (image_buff);
     }
 
-  /* Образ в частотной области копируем без изменений. */
+  /* Образ в частотной области преобразуем ко внутреннему представлению PFFFT. */
   else
     {
-      memcpy (fft_image, image, n_points * sizeof(HyScanComplexFloat));
+      HyScanComplexFloat *image_buff;
+
+      image_buff = pffft_aligned_malloc (priv->fft_size * sizeof(HyScanComplexFloat));
+
+      memcpy (image_buff, image, n_points * sizeof(HyScanComplexFloat));
+      pffft_zreorder (priv->fft,
+                      (const gfloat*) image_buff,
+                      (gfloat*) fft_image,
+                      PFFFT_BACKWARD);
+
+      pffft_aligned_free (image_buff);
     }
 
   g_hash_table_insert (priv->fft_images, GINT_TO_POINTER (index), fft_image);
@@ -326,7 +338,7 @@ hyscan_convolution_get_fft_size (guint32 fft_size)
 
   for (i = 0; i < G_N_ELEMENTS (fft_sizes); i++)
     {
-      if (fft_sizes[i] > fft_size)
+      if (fft_sizes[i] >= fft_size)
         return fft_sizes[i];
     }
 
@@ -467,7 +479,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
           ((n_fft + 1) * half_size - n_points) * sizeof(HyScanComplexFloat));
 
   /* Прямое преобразование Фурье. */
-#ifdef HYSCAN_MATH_USE_OPENMP
+#ifdef HYSCAN_OPEN_MP
 #pragma omp parallel for
 #endif
   for (i = 0; i < n_fft; i++)
@@ -480,7 +492,7 @@ hyscan_convolution_convolve (HyScanConvolution  *convolution,
     }
 
   /* Свёртка и обратное преобразование Фурье. */
-#ifdef HYSCAN_MATH_USE_OPENMP
+#ifdef HYSCAN_OPEN_MP
 #pragma omp parallel for
 #endif
   for (i = 0; i < n_fft; i++)
